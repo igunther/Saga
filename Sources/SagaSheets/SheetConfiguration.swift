@@ -6,7 +6,7 @@
 import SwiftUI
 
 /// Configuration for sheet presentation styles
-public enum SheetConfiguration {
+public enum SagaSheetConfiguration {
     /// Auto-adjusts to content height
     case auto
     /// Small fixed detent (25% of screen)
@@ -21,6 +21,8 @@ public enum SheetConfiguration {
     case height(CGFloat)
     /// Multiple detents for user to choose from
     case detents([PresentationDetent])
+    /// Combine with other configurations
+    case combined(SagaSheetConfiguration, SagaSheetConfiguration)
 
     /// Converts configuration to presentation detents
     var presentationDetents: Set<PresentationDetent> {
@@ -45,7 +47,7 @@ public enum SheetConfiguration {
 }
 
 /// Options for sheet appearance
-public struct SheetOptions: Sendable {
+public struct SagaSheetOptions: Sendable {
     public var showDragIndicator: Bool
     public var enableInteractiveDismiss: Bool
 
@@ -57,5 +59,5 @@ public struct SheetOptions: Sendable {
         self.enableInteractiveDismiss = enableInteractiveDismiss
     }
 
-    public nonisolated(unsafe) static let `default` = SheetOptions()
+    public nonisolated(unsafe) static let `default` = SagaSheetOptions()
 }

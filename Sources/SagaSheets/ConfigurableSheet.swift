@@ -6,14 +6,14 @@
 import SwiftUI
 
 /// A sheet with flexible configuration options
-public struct ConfigurableSheet<Content: View>: View {
-    let configuration: SheetConfiguration
-    let options: SheetOptions
+public struct SagaConfigurableSheet<Content: View>: View {
+    let configuration: SagaSheetConfiguration
+    let options: SagaSheetOptions
     @ViewBuilder let content: () -> Content
 
     public init(
-        configuration: SheetConfiguration = .medium,
-        options: SheetOptions = .default,
+        configuration: SagaSheetConfiguration = .medium,
+        options: SagaSheetOptions = .default,
         @ViewBuilder content: @escaping () -> Content
     ) {
         self.configuration = configuration
@@ -25,7 +25,7 @@ public struct ConfigurableSheet<Content: View>: View {
         Group {
             if case .auto = configuration {
                 // Use auto-height for .auto configuration
-                AutoHeightSheet(options: options, content: content)
+                SagaAutoHeightSheet(options: options, content: content)
             } else {
                 // Use standard presentation detents
                 content()
@@ -43,18 +43,18 @@ public struct ConfigurableSheet<Content: View>: View {
 
 public extension View {
     /// Wraps the view in a sheet with auto-height
-    func asAutoHeightSheet(options: SheetOptions = .default) -> some View {
-        AutoHeightSheet(options: options) {
+    func asAutoHeightSheet(options: SagaSheetOptions = .default) -> some View {
+        SagaAutoHeightSheet(options: options) {
             self
         }
     }
 
     /// Wraps the view in a configurable sheet
     func asSheet(
-        _ configuration: SheetConfiguration = .medium,
-        options: SheetOptions = .default
+        _ configuration: SagaSheetConfiguration = .medium,
+        options: SagaSheetOptions = .default
     ) -> some View {
-        ConfigurableSheet(configuration: configuration, options: options) {
+        SagaConfigurableSheet(configuration: configuration, options: options) {
             self
         }
     }

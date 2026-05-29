@@ -6,12 +6,12 @@
 import SwiftUI
 
 /// A sheet that automatically adjusts to its content height
-public struct AutoHeightSheet<Content: View>: View {
-    let options: SheetOptions
+public struct SagaAutoHeightSheet<Content: View>: View {
+    let options: SagaSheetOptions
     @ViewBuilder let content: () -> Content
 
     public init(
-        options: SheetOptions = .default,
+        options: SagaSheetOptions = .default,
         @ViewBuilder content: @escaping () -> Content
     ) {
         self.options = options
@@ -26,7 +26,7 @@ public struct AutoHeightSheet<Content: View>: View {
 
 /// Modifier that reads content height and sets presentation detent
 private struct AutoHeightModifier: ViewModifier {
-    let options: SheetOptions
+    let options: SagaSheetOptions
     @State private var height: CGFloat = 0
 
     func body(content: Content) -> some View {
