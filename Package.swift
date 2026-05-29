@@ -5,11 +5,20 @@ import PackageDescription
 
 let package = Package(
     name: "Saga",
+    platforms: [.iOS(.v16), .macOS(.v10_15)],
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
         .library(
             name: "Saga",
             targets: ["Saga"]
+        ),
+        .library(
+            name: "SagaFlow",
+            targets: ["SagaFlow"]
+        ),
+        .library(
+            name: "SagaSheets",
+            targets: ["SagaSheets"]
         ),
     ],
     targets: [
@@ -17,6 +26,12 @@ let package = Package(
         // Targets can depend on other targets in this package and products from dependencies.
         .target(
             name: "Saga"
+        ),
+        .target(
+            name: "SagaFlow"
+        ),
+        .target(
+            name: "SagaSheets"
         ),
         .testTarget(
             name: "SagaTests",
