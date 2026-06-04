@@ -6,15 +6,15 @@
 import SwiftUI
 
 /// A sheet with flexible configuration options
-public struct SagaConfigurableSheet<Content: View>: View {
+public struct SagaConfigurableSheet: View {
     let configuration: SagaSheetConfiguration
     let options: SagaSheetOptions
-    @ViewBuilder let content: () -> Content
+    let content: AnyView
 
     public init(
         configuration: SagaSheetConfiguration = .medium,
         options: SagaSheetOptions = .default,
-        @ViewBuilder content: @escaping () -> Content
+        content: AnyView
     ) {
         self.configuration = configuration
         self.options = options
@@ -22,17 +22,17 @@ public struct SagaConfigurableSheet<Content: View>: View {
     }
 
     public var body: some View {
-        Group {
-            if case .auto = configuration {
-                // Use auto-height for .auto configuration
-                SagaAutoHeightSheet(options: options, content: content)
-            } else {
-                // Use standard presentation detents
-                content()
+        if case .auto = configuration {
+            // Use auto-height for .auto configuration
+            AnyView(SagaAutoHeightSheet(options: options, content: content))
+        } else {
+            // Use standard presentation detents
+            AnyView(
+                content
                     .presentationDetents(configuration.presentationDetents)
                     .presentationDragIndicator(options.showDragIndicator ? .visible : .hidden)
                     .interactiveDismissDisabled(!options.enableInteractiveDismiss)
-            }
+            )
         }
     }
 }
@@ -44,9 +44,7 @@ public struct SagaConfigurableSheet<Content: View>: View {
 public extension View {
     /// Wraps the view in a sheet with auto-height
     func asAutoHeightSheet(options: SagaSheetOptions = .default) -> some View {
-        SagaAutoHeightSheet(options: options) {
-            self
-        }
+        SagaAutoHeightSheet(options: options, content: AnyView(self))
     }
 
     /// Wraps the view in a configurable sheet
@@ -54,8 +52,6 @@ public extension View {
         _ configuration: SagaSheetConfiguration = .medium,
         options: SagaSheetOptions = .default
     ) -> some View {
-        SagaConfigurableSheet(configuration: configuration, options: options) {
-            self
-        }
+        SagaConfigurableSheet(configuration: configuration, options: options, content: AnyView(self))
     }
 }

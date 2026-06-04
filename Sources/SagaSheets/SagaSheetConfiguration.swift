@@ -21,8 +21,6 @@ public enum SagaSheetConfiguration {
     case height(CGFloat)
     /// Multiple detents for user to choose from
     case detents([PresentationDetent])
-    /// Combine with other configurations
-    case combined(SagaSheetConfiguration, SagaSheetConfiguration)
 
     /// Converts configuration to presentation detents
     var presentationDetents: Set<PresentationDetent> {

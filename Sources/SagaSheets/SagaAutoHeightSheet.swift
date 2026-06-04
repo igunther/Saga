@@ -6,20 +6,20 @@
 import SwiftUI
 
 /// A sheet that automatically adjusts to its content height
-public struct SagaAutoHeightSheet<Content: View>: View {
+public struct SagaAutoHeightSheet: View {
     let options: SagaSheetOptions
-    @ViewBuilder let content: () -> Content
+    let content: AnyView
 
     public init(
         options: SagaSheetOptions = .default,
-        @ViewBuilder content: @escaping () -> Content
+        content: AnyView
     ) {
         self.options = options
         self.content = content
     }
 
     public var body: some View {
-        content()
+        content
             .modifier(AutoHeightModifier(options: options))
     }
 }
