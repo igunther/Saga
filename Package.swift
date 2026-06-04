@@ -5,7 +5,7 @@ import PackageDescription
 
 let package = Package(
     name: "Saga",
-    platforms: [.iOS(.v26), .macOS(.v10_15)],
+    platforms: [.iOS(.v18)],
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
         .library(
