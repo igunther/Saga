@@ -265,6 +265,7 @@ public struct SagaMapConfiguration: Sendable {
     public let stylePicker: SagaMapStylePickerConfiguration?
     public let fitControl: SagaMapFitControlConfiguration?
     public let showsBorder: Bool
+    public let showsNativeMapControls: Bool
     public let controlPadding: CGFloat
     public let controlContentInsets: SagaMapControlInsets
 
@@ -278,6 +279,7 @@ public struct SagaMapConfiguration: Sendable {
         stylePicker: SagaMapStylePickerConfiguration? = nil,
         fitControl: SagaMapFitControlConfiguration? = nil,
         showsBorder: Bool = true,
+        showsNativeMapControls: Bool = false,
         controlPadding: CGFloat = 8,
         controlContentInsets: SagaMapControlInsets = .zero
     ) {
@@ -290,6 +292,7 @@ public struct SagaMapConfiguration: Sendable {
         self.stylePicker = stylePicker
         self.fitControl = fitControl
         self.showsBorder = showsBorder
+        self.showsNativeMapControls = showsNativeMapControls
         self.controlPadding = controlPadding
         self.controlContentInsets = controlContentInsets
     }
@@ -331,6 +334,7 @@ public struct SagaMap<Content: MapContent>: View {
                 content()
             }
             .mapStyle(style.mapStyle)
+            .mapControlVisibility(configuration.showsNativeMapControls ? .automatic : .hidden)
             .onMapCameraChange { context in
                 visibleRegion = context.region
             }
