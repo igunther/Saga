@@ -20,6 +20,10 @@ let package = Package(
             name: "SagaSheets",
             targets: ["SagaSheets"]
         ),
+        .library(
+            name: "SagaUpdates",
+            targets: ["SagaUpdates"]
+        ),
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
@@ -33,9 +37,17 @@ let package = Package(
         .target(
             name: "SagaSheets"
         ),
+        .target(
+            name: "SagaUpdates"
+        ),
         .testTarget(
             name: "SagaTests",
             dependencies: ["Saga"]
         ),
-    ]
+        .testTarget(
+            name: "SagaUpdatesTests",
+            dependencies: ["SagaUpdates"]
+        ),
+    ],
+    swiftLanguageModes: [.v6]
 )
