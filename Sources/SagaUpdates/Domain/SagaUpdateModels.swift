@@ -1,9 +1,18 @@
 import Foundation
 
+public enum SagaUpdateRegion: Sendable, Equatable {
+    /// Always query this two-letter App Store country, independent of StoreKit.
+    case countryCode(String)
+    /// Follow the App Store storefront; use the two-letter fallback if unavailable or unknown.
+    case automatic(fallbackCountryCode: String)
+}
+
 public struct SagaUpdateConfiguration: Sendable {
     public let appStoreID: Int
     public let installedVersion: String
+    /// The explicit country, or the fallback in automatic mode (retained for source compatibility).
     public let countryCode: String
+    public let region: SagaUpdateRegion
     public let checkInterval: TimeInterval
     public let retryInterval: TimeInterval
     /// Optional iOS BGAppRefreshTask identifier registered by the host app.
@@ -17,15 +26,36 @@ public struct SagaUpdateConfiguration: Sendable {
         retryInterval: TimeInterval = 60 * 60,
         backgroundTaskIdentifier: String? = nil
     ) {
+        self.init(appStoreID: appStoreID, installedVersion: installedVersion,
+                  region: .countryCode(countryCode), checkInterval: checkInterval,
+                  retryInterval: retryInterval, backgroundTaskIdentifier: backgroundTaskIdentifier)
+    }
+
+    public init(
+        appStoreID: Int,
+        installedVersion: String,
+        region: SagaUpdateRegion,
+        checkInterval: TimeInterval = 24 * 60 * 60,
+        retryInterval: TimeInterval = 60 * 60,
+        backgroundTaskIdentifier: String? = nil
+    ) {
         precondition(appStoreID > 0)
         precondition(checkInterval.isFinite && checkInterval > 0)
         precondition(retryInterval.isFinite && retryInterval > 0)
+        let countryCode: String
+        switch region {
+        case .countryCode(let code), .automatic(let code): countryCode = code
+        }
         let normalizedCountry = countryCode.uppercased()
         precondition(normalizedCountry.utf8.count == 2 && normalizedCountry.utf8.allSatisfy { $0 >= 65 && $0 <= 90 })
         if let backgroundTaskIdentifier { precondition(!backgroundTaskIdentifier.isEmpty) }
         self.appStoreID = appStoreID
         self.installedVersion = installedVersion
         self.countryCode = normalizedCountry
+        switch region {
+        case .countryCode: self.region = .countryCode(normalizedCountry)
+        case .automatic: self.region = .automatic(fallbackCountryCode: normalizedCountry)
+        }
         self.checkInterval = checkInterval
         self.retryInterval = retryInterval
         self.backgroundTaskIdentifier = backgroundTaskIdentifier

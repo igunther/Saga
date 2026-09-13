@@ -5,24 +5,28 @@ import OSLog
 public actor SagaUpdateService {
     public let configuration: SagaUpdateConfiguration
 
-    private let repository: SagaUpdateRepository
+    private let repositoryFactory: @Sendable (String) -> SagaUpdateRepository
+    private let regionRepository: StorefrontRegionRepository
+    private var repositories: [String: SagaUpdateRepository] = [:]
+    private var selectedCountry: String?
+    private var regionGeneration = 0
     private var current = SagaUpdateSnapshot(release: nil, availability: .unknown, checkedAt: nil)
     private var snapshotSubscribers: [UUID: AsyncStream<SagaUpdateSnapshot>.Continuation] = [:]
     private var releaseSubscribers: [UUID: AsyncStream<SagaStoreRelease>.Continuation] = [:]
     private var monitoringTask: Task<Void, Never>?
-    private var hasLoadedCache = false
+    private var storefrontTask: Task<Void, Never>?
+    private var isActive = false
 
-    init(configuration: SagaUpdateConfiguration, repository: SagaUpdateRepository) {
+    init(configuration: SagaUpdateConfiguration, regionRepository: StorefrontRegionRepository,
+         repositoryFactory: @escaping @Sendable (String) -> SagaUpdateRepository) {
         self.configuration = configuration
-        self.repository = repository
+        self.regionRepository = regionRepository
+        self.repositoryFactory = repositoryFactory
     }
 
     /// The latest known value, including a persisted result from a previous launch.
     public func snapshot() async -> SagaUpdateSnapshot {
-        if !hasLoadedCache, let (release, checkedAt) = await repository.cachedRelease() {
-            current = makeSnapshot(release: release, checkedAt: checkedAt)
-        }
-        hasLoadedCache = true
+        await selectCurrentRegion()
         return current
     }
 
@@ -39,7 +43,7 @@ public actor SagaUpdateService {
         }
     }
 
-    /// Emits once per newly discovered App Store version, across app launches.
+    /// Emits once per newly discovered App Store version and country, across app launches.
     /// Subscribe before starting monitoring; use `snapshot()` to recover current state.
     public func newVersions() -> AsyncStream<SagaStoreRelease> {
         let id = UUID()
@@ -53,12 +57,61 @@ public actor SagaUpdateService {
 
     /// Starts due checks and keeps their cadence while the host app is active.
     public func setActive(_ active: Bool) {
+        guard isActive != active else { return }
+        isActive = active
         monitoringTask?.cancel()
         monitoringTask = nil
+        storefrontTask?.cancel()
+        storefrontTask = nil
         guard active else { return }
-        monitoringTask = Task { [weak self] in
-            guard let self else { return }
-            await self.monitor()
+        startMonitor()
+        if case .automatic = configuration.region {
+            storefrontTask = Task { [weak self, regionRepository] in
+                for await code in regionRepository.countryCodeUpdates() {
+                    guard !Task.isCancelled else { return }
+                    await self?.selectRegion(for: code)
+                }
+            }
+        }
+    }
+
+    private func startMonitor() {
+        monitoringTask = Task { [weak self] in await self?.monitor() }
+    }
+
+    private func repository(for country: String) -> SagaUpdateRepository {
+        if let repository = repositories[country] { return repository }
+        let repository = repositoryFactory(country)
+        repositories[country] = repository
+        return repository
+    }
+
+    private func selectCurrentRegion() async {
+        switch configuration.region {
+        case .countryCode(let country): await selectCountry(country)
+        case .automatic:
+            await selectRegion(for: await regionRepository.currentCountryCode())
+        }
+    }
+
+    private func selectRegion(for countryCode: String?) async {
+        guard case .automatic(let fallback) = configuration.region else { return }
+        await selectCountry(countryCode ?? fallback)
+    }
+
+    private func selectCountry(_ country: String) async {
+        guard selectedCountry != country else { return }
+        selectedCountry = country
+        regionGeneration += 1
+        let generation = regionGeneration
+        let cached = await repository(for: country).cachedRelease()
+        guard selectedCountry == country, regionGeneration == generation else { return }
+        current = cached.map { makeSnapshot(release: $0.0, checkedAt: $0.1) }
+            ?? SagaUpdateSnapshot(release: nil, availability: .unknown, checkedAt: nil)
+        publish(current)
+        if isActive {
+            monitoringTask?.cancel()
+            startMonitor()
         }
     }
 
@@ -66,6 +119,9 @@ public actor SagaUpdateService {
     @discardableResult
     public func refresh(force: Bool = false) async throws -> SagaUpdateSnapshot {
         _ = await snapshot()
+        guard let country = selectedCountry else { throw CancellationError() }
+        let generation = regionGeneration
+        let repository = repository(for: country)
         guard let installed = SagaVersion(configuration.installedVersion) else {
             current = SagaUpdateSnapshot(
                 release: current.release,
@@ -79,13 +135,15 @@ public actor SagaUpdateService {
         do {
             let result = try await repository.check(
                 appStoreID: configuration.appStoreID,
-                countryCode: configuration.countryCode,
+                countryCode: country,
                 checkInterval: configuration.checkInterval,
                 retryInterval: configuration.retryInterval,
                 now: Date(),
                 force: force
             )
             try Task.checkCancellation()
+            await selectCurrentRegion()
+            guard selectedCountry == country, regionGeneration == generation else { throw CancellationError() }
             guard let storeVersion = SagaVersion(result.release.version) else {
                 throw SagaUpdateError.invalidStoreResponse
             }
@@ -99,12 +157,16 @@ public actor SagaUpdateService {
             )
             publish(current)
             if available, await repository.reportIfNew(version: release.version) {
+                await selectCurrentRegion()
+                guard selectedCountry == country, regionGeneration == generation else { throw CancellationError() }
                 for continuation in releaseSubscribers.values { continuation.yield(release) }
             }
             return current
         } catch is CancellationError {
             throw CancellationError()
         } catch {
+            await selectCurrentRegion()
+            guard selectedCountry == country, regionGeneration == generation else { throw CancellationError() }
             let mapped: SagaUpdateError
             switch error {
             case let domainError as SagaUpdateError: mapped = domainError
@@ -124,10 +186,10 @@ public actor SagaUpdateService {
     }
 
     private func monitor() async {
-        let cached = await snapshot()
-        publish(cached)
+        _ = await snapshot()
         while !Task.isCancelled {
-            let due = await repository.nextCheckDate(
+            guard let country = selectedCountry else { return }
+            let due = await repository(for: country).nextCheckDate(
                 checkInterval: configuration.checkInterval,
                 retryInterval: configuration.retryInterval
             )
@@ -155,7 +217,9 @@ public actor SagaUpdateService {
     }
 
     func nextCheckDate() async -> Date {
-        await repository.nextCheckDate(
+        await selectCurrentRegion()
+        guard let selectedCountry else { return .distantPast }
+        return await repository(for: selectedCountry).nextCheckDate(
             checkInterval: configuration.checkInterval,
             retryInterval: configuration.retryInterval
         )
