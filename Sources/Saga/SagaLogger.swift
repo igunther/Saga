@@ -265,7 +265,21 @@ public final class SagaLogger: SagaLogging, @unchecked Sendable {
         message: String,
         metadata: SagaLogMetadata
     ) -> String {
-        "\(level.emoji) [\(level.rawValue.uppercased())] \(message) - \(metadata.file):\(metadata.line) \(metadata.function)"
+        let timestamp = Self.timestamp()
+        return "\(level.emoji) [\(level.rawValue.uppercased())] \(timestamp) \(message) - \(metadata.file):\(metadata.line) \(metadata.function)"
+    }
+
+    private static func timestamp(date: Date = Date()) -> String {
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.hour, .minute, .second, .nanosecond], from: date)
+        let milliseconds = (components.nanosecond ?? 0) / 1_000_000
+        return String(
+            format: "%02d:%02d:%02d.%03d",
+            components.hour ?? 0,
+            components.minute ?? 0,
+            components.second ?? 0,
+            milliseconds
+        )
     }
 }
 

@@ -742,7 +742,7 @@ private struct SagaMapPreviewCanvas: View {
             }
         }
         .padding()
-        .background(Color(.systemGroupedBackground))
+        .background(Color.sagaMapPreviewBackground)
     }
 }
 
@@ -751,6 +751,16 @@ private extension MKCoordinateRegion {
         center: CLLocationCoordinate2D(latitude: 59.55, longitude: 10.68),
         span: MKCoordinateSpan(latitudeDelta: 1.1, longitudeDelta: 1.4)
     )
+}
+
+private extension Color {
+    static var sagaMapPreviewBackground: Color {
+#if os(macOS)
+        Color(nsColor: .windowBackgroundColor)
+#else
+        Color(uiColor: .systemGroupedBackground)
+#endif
+    }
 }
 
 private extension CLLocationCoordinate2D {
